@@ -6,9 +6,40 @@ import numpy as np
 import cv2
 from agents.navigation.global_route_planner import GlobalRoutePlanner
 
+
+# Constantantes de ajustes de conducción
+_delta = 0.5 / 60               # intervalo de tiempo entre cada iteración del lazo de control
+_steer_correction = 0.85        # corrección de dirección máxima permitida
+
+
 class PIDController:
-    """PID Controller for steering."""
-    def __init__(self, Kp, Ki, Kd, dt=1.0/60):
+    
+    """
+
+        Nombre de la Clase: PIDController   
+    
+        Descripción corta: env
+            Controlador PID para evitar giros buscos
+    
+        Descripción: evitar vibraciones o giros bruscos (bandazos).
+            
+            1. Kp (Proporcional)
+                Aumenta la respuesta del vehículo.
+                Si es muy alto → el vehículo oscila o sobrecorrige.
+                Recomendación: empieza con un valor bajo (ej. 0.05) y aumenta gradualmente.
+            2. Ki (Integral)
+                Corrige errores acumulados (por ejemplo, si el coche siempre gira un poco menos).
+                Si es muy alto → puede causar inestabilidad.
+                Recomendación: mantenlo bajo (0.001 o incluso 0 al principio).
+            3. Kd (Derivativo)
+                Suaviza la respuesta, reduce oscilaciones.
+                Si es muy alto → puede hacer que el sistema reaccione lentamente.
+                Recomendación: empieza con un valor moderado (0.02) y ajusta según el comportamiento.
+       
+    
+    """
+    def __init__(self, Kp=0.06, Ki=0.001, Kd=0.02, dt=1.0/60):
+        
         self.Kp = Kp
         self.Ki = Ki
         self.Kd = Kd
@@ -17,13 +48,16 @@ class PIDController:
         self.prev_error = 0
 
     def control(self, error):
+        
         """Compute PID control output."""
         self.integral += error * self.dt
         derivative = (error - self.prev_error) / self.dt
         self.prev_error = error
         return self.Kp * error + self.Ki * self.integral + self.Kd * derivative
 
+
 class VehicleAgent:
+    
     """Agent that controls a vehicle to follow waypoints."""
     def __init__(self, world, client):
         self.world = world
@@ -33,37 +67,48 @@ class VehicleAgent:
         self.vehicle = None
         self.front_camera_img = np.zeros([600,800,3])
         self.route = []
-        self.controller = PIDController(Kp=0.05, Ki=0.001, Kd=0.02) # HERE: Any controller can be implemented
+        
+        # self.controller = PIDController(Kp=0.05, Ki=0.001, Kd=0.02) # HERE: Any controller can be implemented
+        self.controller = PIDController(Kp=0.06, Ki=00, Kd=0.01) # HERE: Any controller can be implemented
+        
 
     def spawn_vehicle(self):
-        """Spawns a vehicle at a fixed or random location."""
-        spawn_points = self.map.get_spawn_points()
-        use_random_points = False  # Set True for random spawn locations
+        
+        """
+            DESCRIPCION: Muestra o posiciona un vehículo en el mundo de virtual de CARLA
+
+            
+        """
+        spawn_points = self.map.get_spawn_points()     # Muestra todos los puntos de spawn disponibles en el mapa
+        use_random_points = False                      # Deshabilita puntos de spawn aleatorios a False
 
         if use_random_points:
             a = random.choice(spawn_points).location
             b = random.choice(spawn_points).location
-        else:
-            a = spawn_points[50].location
-            b = spawn_points[100].location
+        else:                                           # En esta PoC se utiliza un punto de spawn fijo
+            a = spawn_points[50].location               # Waypoint de inicio
+            b = spawn_points[100].location              # Waypoint de destino
 
-        self.route = self.grp.trace_route(a, b)
+        self.route = self.grp.trace_route(a, b)         # Traza la ruta
 
-        waypoint = self.map.get_waypoint(a)
-        vehicle_transform = carla.Transform(
+        waypoint = self.map.get_waypoint(a)             # Obtiene el waypoint más cercano al punto de inicio       
+        vehicle_transform = carla.Transform(            
             carla.Location(waypoint.transform.location.x, waypoint.transform.location.y, 2),
             waypoint.transform.rotation
-        )
+        )                                               # Transforma la ubicación del vehículo al waypoint más cercano
 
+
+        # Spawn the vehicle at the transform: Modificar código de librerias
         self.blueprint_library = self.world.get_blueprint_library()
-        vehicle_bp = random.choice(self.blueprint_library.filter('vehicle.*'))
+        vehicle_bp = random.choice(self.blueprint_library.filter('vehicle.tesla.model3'))
         self.vehicle = self.world.spawn_actor(vehicle_bp, vehicle_transform)
 
-        # Draw the planned route
+      
         for i, w in enumerate(self.route):
             color = carla.Color(r=255, g=0, b=0) if i % 10 == 0 else carla.Color(r=0, g=0, b=255)
             self.world.debug.draw_string(w[0].transform.location, 'O', draw_shadow=False, color=color, life_time=120.0, persistent_lines=True)
 
+    
     def spawn_camera(self):
         camera_bp = self.blueprint_library.find('sensor.camera.rgb')
         # Modify the attributes of the blueprint to set image resolution and field of view.
@@ -82,6 +127,7 @@ class VehicleAgent:
         array = np.copy(array)
         array = np.reshape(array, (image.height, image.width, 4))
         self.front_camera_img = array[:, :, :3]
+
 
     def update_spectator(self):
         """Moves the spectator to follow the vehicle."""
@@ -106,7 +152,7 @@ class VehicleAgent:
     def follow_route(self):
         """Moves the vehicle along the planned route using a controller."""
         if not self.route or not self.vehicle:
-            return
+            return _delta
 
         vehicle_transform = self.vehicle.get_transform()
         vehicle_location = vehicle_transform.location
@@ -125,37 +171,48 @@ class VehicleAgent:
 
         # Get steering correction from
         steer_correction = self.controller.control(yaw_error)
-        steer_correction = max(min(steer_correction, 1.0), -1.0)  # Clamp steering
+        steer_correction = max(min(steer_correction, 0.85), -0.85)  # Clamp steering, a vver si da la curva
 
         # Apply control
         self.vehicle.apply_control(carla.VehicleControl(throttle=0.5, steer=steer_correction, brake=0))
 
     def run(self):
-        """Main loop for vehicle movement."""
+        """
+            DESCRIPCION: Lazo cerrado para el movimiento del vehículo
+        """
         try:
+        
             while True:
                 self.follow_route()
                 self.update_spectator()
                 self.world.tick()
-                time.sleep(1.0 / 60)
+                time.sleep(_delta)
+        
         except KeyboardInterrupt:
             print("Exiting gracefully...")
             self.vehicle.destroy()
 
+
 # ===== MAIN SCRIPT =====
-client = carla.Client("localhost", 2000)
-client.set_timeout(10)
-world = client.load_world('Town01')
+def main():
 
-# Set synchronous mode
-settings = world.get_settings()
-settings.synchronous_mode = True
-settings.fixed_delta_seconds = 1.0 / 60
-world.apply_settings(settings)
+    client = carla.Client("localhost", 2000)
+    client.set_timeout(10)
+    world = client.load_world('Town01')
 
-# Create agent and run
-agent = VehicleAgent(world, client)
-agent.spawn_vehicle()
-agent.spawn_camera()
-agent.camera.listen(lambda image: agent.camera_callback(image))
-agent.run()
+    # Set synchronous mode
+    settings = world.get_settings()
+    settings.synchronous_mode = True
+    settings.fixed_delta_seconds = _delta
+    world.apply_settings(settings)
+
+    # Create agent and run
+    agent = VehicleAgent(world, client)
+    agent.spawn_vehicle()
+    agent.spawn_camera()
+    agent.camera.listen(lambda image: agent.camera_callback(image))
+    agent.run()
+
+
+if __name__ == '__main__':
+    main()

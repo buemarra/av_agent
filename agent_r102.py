@@ -240,10 +240,8 @@ class VehicleAgent:
             DESCRIPCION: Lazo cerrado para el movimiento del vehículo
         """
         try:
-            print("Entrando ...\n")
-            self._updatestate()
-            print ("Saliendo ... \n")
             
+            self._updatestate()
             while True:
                 self.follow_route()
                 self.update_spectator()

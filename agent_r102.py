@@ -90,7 +90,7 @@ class VehicleAgent:
             if not file_exists:
                 self.writer.writeheader()
         
-        
+        print (f"Fichero csv creado {log_file} ")
 
 
 
@@ -212,7 +212,11 @@ class VehicleAgent:
         self.vehicle.apply_control(carla.VehicleControl(throttle=self.throttle, steer=self.steer_correction, brake=self.brake))
 
     def _updatestate(self):
+
+        print(f"Valores {datetime.now().strftime('%d-%m-%Y %H:%M:%S.%f')[:-3]} {self.controller.Kp}, {self.controller.Ki} {self.controller.Kd} {self.yaw_error} {self.steer_correction} {self.steer_correction} {self.throttle} {self.brake} {self.target_location_y} {self.target_location_x} {self.vehicle_location_x} \n")
         
+        
+        '''
         self.writer.writerow({
                         'timestamp': datetime.now().strftime('%d-%m-%Y %H:%M:%S.%f')[:-3],
                         'Kp': self.controller.Kp,
@@ -227,7 +231,7 @@ class VehicleAgent:
                         'target_x': self.target_location_x,
                         'vehicle_x': self.vehicle_location_x
                     })
-    
+        '''
     def run(self):
         # Prepare log file
                 
@@ -236,13 +240,17 @@ class VehicleAgent:
             DESCRIPCION: Lazo cerrado para el movimiento del vehículo
         """
         try:
+            print("Entrando ...\n")
+            self._updatestate()
+            print ("Saliendo ... \n")
             
             while True:
                 self.follow_route()
                 self.update_spectator()
                 self.world.tick()
-                self._updatestate()
                 time.sleep(_delta)
+                
+                self._updatestate()
         
         except KeyboardInterrupt:
             print("Exiting gracefully...")

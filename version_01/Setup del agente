@@ -1,0 +1,6 @@
+Pasos para instalación:
+ 1- Instalar docker -> https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html#installing-the-nvidia-container-toolkit
+ 2- Descargar carla -> https://tiny.carla.org/carla-0-9-14-linux
+ 3- Descomprimir carla y correr el simulador -> ./CarlaUE.sh
+ 4- Correr el la imagen de docker -> make run (Modificar usuarios en el dockerfile)
+ 5- Correr el agente -> python agent.py

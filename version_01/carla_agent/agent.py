@@ -1,51 +1,14 @@
-
+import carla
 import math
 import time
 import random
 import numpy as np
 import cv2
-
-import sys
-import os
-
-
-# Ruta absoluta o relativa a la carpeta que contiene 'agents'
-carla_root = 'C:/CARLA_0.9.15/WindowsNoEditor'
-sys.path.append(os.path.join(carla_root, 'PythonAPI'))
-sys.path.append(os.path.join(carla_root, 'PythonAPI', 'examples'))
-sys.path.append(os.path.join(carla_root, 'PythonAPI', 'carla'))
-import carla
-
 from agents.navigation.global_route_planner import GlobalRoutePlanner
 
-
 class PIDController:
-    
-    """
-        Nombre de la Clase: PIDController   
-    
-        Descripción corta: env
-            Controlador PID para evitar giros buscos
-    
-        Descripción: evitar vibraciones o giros bruscos (bandazos).
-            
-            1. Kp (Proporcional)
-                Aumenta la respuesta del vehículo.
-                Si es muy alto → el vehículo oscila o sobrecorrige.
-                Recomendación: empieza con un valor bajo (ej. 0.05) y aumenta gradualmente.
-            2. Ki (Integral)
-                Corrige errores acumulados (por ejemplo, si el coche siempre gira un poco menos).
-                Si es muy alto → puede causar inestabilidad.
-                Recomendación: mantenlo bajo (0.001 o incluso 0 al principio).
-            3. Kd (Derivativo)
-                Suaviza la respuesta, reduce oscilaciones.
-                Si es muy alto → puede hacer que el sistema reaccione lentamente.
-                Recomendación: empieza con un valor moderado (0.02) y ajusta según el comportamiento.
-       
-    
-    """
-    def __init__(self, Kp=0.05, Ki=0.001, Kd=0.02, dt=1.0/60):
-        
+    """PID Controller for steering."""
+    def __init__(self, Kp, Ki, Kd, dt=1.0/60):
         self.Kp = Kp
         self.Ki = Ki
         self.Kd = Kd
@@ -54,16 +17,13 @@ class PIDController:
         self.prev_error = 0
 
     def control(self, error):
-        
         """Compute PID control output."""
         self.integral += error * self.dt
         derivative = (error - self.prev_error) / self.dt
         self.prev_error = error
         return self.Kp * error + self.Ki * self.integral + self.Kd * derivative
 
-
 class VehicleAgent:
-    
     """Agent that controls a vehicle to follow waypoints."""
     def __init__(self, world, client):
         self.world = world
@@ -84,7 +44,7 @@ class VehicleAgent:
             a = random.choice(spawn_points).location
             b = random.choice(spawn_points).location
         else:
-            a = spawn_points[50].locPIDControlleration
+            a = spawn_points[50].location
             b = spawn_points[100].location
 
         self.route = self.grp.trace_route(a, b)
@@ -104,7 +64,6 @@ class VehicleAgent:
             color = carla.Color(r=255, g=0, b=0) if i % 10 == 0 else carla.Color(r=0, g=0, b=255)
             self.world.debug.draw_string(w[0].transform.location, 'O', draw_shadow=False, color=color, life_time=120.0, persistent_lines=True)
 
-    
     def spawn_camera(self):
         camera_bp = self.blueprint_library.find('sensor.camera.rgb')
         # Modify the attributes of the blueprint to set image resolution and field of view.
@@ -183,27 +142,20 @@ class VehicleAgent:
             print("Exiting gracefully...")
             self.vehicle.destroy()
 
-
 # ===== MAIN SCRIPT =====
-def main():
+client = carla.Client("localhost", 2000)
+client.set_timeout(10)
+world = client.load_world('Town01')
 
-    client = carla.Client("localhost", 2000)
-    client.set_timeout(10)
-    world = client.load_world('Town01')
+# Set synchronous mode
+settings = world.get_settings()
+settings.synchronous_mode = True
+settings.fixed_delta_seconds = 1.0 / 60
+world.apply_settings(settings)
 
-    # Set synchronous mode
-    settings = world.get_settings()
-    settings.synchronous_mode = True
-    settings.fixed_delta_seconds = 1.0 / 60
-    world.apply_settings(settings)
-
-    # Create agent and run
-    agent = VehicleAgent(world, client)
-    agent.spawn_vehicle()
-    agent.spawn_camera()
-    agent.camera.listen(lambda image: agent.camera_callback(image))
-    agent.run()
-
-
-if __name__ ==  '__main__':
-    main()
+# Create agent and run
+agent = VehicleAgent(world, client)
+agent.spawn_vehicle()
+agent.spawn_camera()
+agent.camera.listen(lambda image: agent.camera_callback(image))
+agent.run()

@@ -1,3 +1,3 @@
 #!/bin/bash
-source ~/Documents/ASDefense/av_agent/.env
+source /home/robesafe/workspace/.env
 exec bash

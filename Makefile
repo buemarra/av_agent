@@ -9,7 +9,7 @@ GID := $(shell id -g)
 
 create_entrypoint:
 	echo '#!/bin/bash' > entrypoint.sh
-	echo 'source ~/Documents/ASDefense/av_agent/.env'
+	echo 'source /home/$(USER_NAME)/workspace/.env' >> entrypoint.sh
 	echo 'exec bash' >> entrypoint.sh
 	chmod +x entrypoint.sh
 

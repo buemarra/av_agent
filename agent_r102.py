@@ -223,9 +223,9 @@ class VehicleAgent:
                         'throttle': self.throttle,
                         'brake': self.brake,
                         'target_y': self.target_location_y,
-                        'vehicle_y': vehicle_location_y,
-                        'target_x': target_location_x,
-                        'vehicle_x': vehicle_location_x
+                        'vehicle_y': self.vehicle_location_y,
+                        'target_x': self.target_location_x,
+                        'vehicle_x': self.vehicle_location_x
                     })
     
     def run(self):

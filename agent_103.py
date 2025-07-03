@@ -211,7 +211,7 @@ class VehicleAgent:
                              'error_x': self.error_x, 'error_y': self.error_y, 'vehicle_height': self.veh_height, 'vehicle_width': self.veh_width,
                              'vehicle_length': self.veh_length})
 
-    def run(self):
+    def run(self, walker_agent=None):
         """Main loop for vehicle movement."""
         try:
             while True:
@@ -220,6 +220,7 @@ class VehicleAgent:
                 self.world.tick()
                 sys.stdout.write(f'[INFO] DELTA: {self.delta} Kp:{self.controller.Kp}, Kd:{self.controller.Kd}, Ki:{self.controller.Ki}, Integral:{self.controller.integral}, Error: {self.controller.prev_error} \n')
                 self._updatestate()
+                walker_agent.run() if walker_agent else None
                 time.sleep(self.delta)
         except KeyboardInterrupt:
             print("Salida controlada...")
@@ -338,7 +339,6 @@ def main():
         walker_agent.spawn_walker()
         walker_agent.set_walker_speed(1.5)  # Set walking speed to 1.5 m/s
         walker_agent.set_random_destination(100.0)  # Set random destination within 100m radius
-        
         print("[7] Caminante no hay camino ..  se hace camino al andar\n")
         
         

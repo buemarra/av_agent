@@ -225,6 +225,82 @@ class VehicleAgent:
             print("Salida controlada...")
             self.vehicle.destroy()
 
+class WalkerAgent:
+    """Agent that controls a pedestrian (walker) in the simulation."""
+    
+    def __init__(self, world, client):
+        self.world = world
+        self.client = client
+        self.map = world.get_map()
+        self.walker = None
+        self.controller = None
+        self.target_location = None
+        self.walker_speed = 1.0  # Default walking speed (m/s)
+        self.blueprint_library = self.world.get_blueprint_library()
+        
+    def spawn_walker(self, spawn_point=None):
+        """Spawns a walker at a specified or random location."""
+        # Get or create spawn point
+        if spawn_point is None:
+            spawn_points = self.world.get_map().get_spawn_points()
+            spawn_point = random.choice(spawn_points)
+        
+        # Select a random walker blueprint
+        walker_bp = random.choice(self.blueprint_library.filter('walker.pedestrian.*'))
+        
+        # Spawn the walker
+        self.walker = self.world.spawn_actor(walker_bp, spawn_point)
+        
+        # Spawn the walker controller
+        controller_bp = self.blueprint_library.find('controller.ai.walker')
+        self.controller = self.world.spawn_actor(controller_bp, carla.Transform(), attach_to=self.walker)
+        
+        print(f"[INFO] Walker spawned at {spawn_point.location}")
+        
+    def set_walker_speed(self, speed):
+        """Set the walking speed in m/s."""
+        self.walker_speed = max(0.0, min(speed, 5.0))  # Clamp speed to reasonable values
+    
+    def set_destination(self, target_location):
+        """Set the target location for the walker."""
+        self.target_location = target_location
+        if self.controller:
+            self.controller.start()
+            self.controller.go_to_location(target_location)
+            self.controller.set_max_speed(self.walker_speed)
+            
+    def set_random_destination(self, radius=50.0):
+        """Set a random destination within a certain radius."""
+        if not self.walker:
+            return
+            
+        current_location = self.walker.get_transform().location
+        x = current_location.x + random.uniform(-radius, radius)
+        y = current_location.y + random.uniform(-radius, radius)
+        z = current_location.z
+        
+        self.set_destination(carla.Location(x, y, z))
+        
+    def run(self):
+        """Main loop for walker movement."""
+        if not self.controller or not self.walker:
+            print("[WARNING] Walker or controller not initialized")
+            return
+            
+        # Set initial random destination if none is set
+        if self.target_location is None:
+            self.set_random_destination()
+            
+    def destroy(self):
+        """Clean up the walker and its controller."""
+        if self.controller:
+            self.controller.stop()
+            self.controller.destroy()
+        if self.walker:
+            self.walker.destroy()
+        print("[INFO] Walker and controller destroyed")
+
+
 def main():
     _delta = 0.5 / 60
     try:
@@ -239,6 +315,7 @@ def main():
         settings.fixed_delta_seconds = _delta
         world.apply_settings(settings)
         print("[4] Settings inicializados\n") # Create agent and run
+        
         print("[5] Instanciando vehículo en el mundo CARLA\n")
         agent = VehicleAgent(world, client)
         agent.spawn_vehicle()
@@ -247,15 +324,26 @@ def main():
         agent.delta = _delta
         agent.get_vehicle_dimensions(world= world)
         print(f"[5.1] Dimensiones del vehículo: {agent.veh_length} x {agent.veh_width} x {agent.veh_height}\n")
+        
+        
         print("[6] Vehículo instanciado en el mundo Carla\n")
-
         # Spawn a walker (pedestrian) in the world
+        '''
         walker_controller_bp = world.get_blueprint_library().find('controller.ai.walker')
         walker = world.spawn_actor(walker_controller_bp, carla.Transform())
+        '''
+
+        # Create walker agent
+        walker_agent = WalkerAgent(world, client)
+        walker_agent.spawn_walker()
+        walker_agent.set_walker_speed(1.5)  # Set walking speed to 1.5 m/s
+        walker_agent.set_random_destination(100.0)  # Set random destination within 100m radius
+        
         print("[7] Caminante no hay camino ..  se hace camino al andar\n")
+        
+        
+        
         print("[8] Iniciando ejecución del agente\n")
-        
-        
         
         
         agent.run()
@@ -268,7 +356,8 @@ def main():
         print(f"Error al conectar con CARLA: {_ex}")
     finally:
         print("Finalizando ejecución del agente")
-
+        if 'walker_agent' in locals():
+            walker_agent.destroy()
 
 if __name__ == "__main__":
     main()
